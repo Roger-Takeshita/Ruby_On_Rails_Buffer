@@ -9,13 +9,17 @@
       - [Views](#views)
       - [Controllers](#controllers)
     - [About Page](#about-page)
-      - [Routes](#routes-1)
-      - [Controller](#controller)
-      - [Views](#views-1)
-    - [Main Route](#main-route)
-      - [Routes](#routes-2)
-      - [Controller](#controller-1)
-      - [Views](#views-2)
+      - [About Route](#about-route)
+      - [About Controller](#about-controller)
+      - [About View](#about-view)
+    - [Main Page/Root](#main-pageroot)
+      - [Main Route](#main-route)
+      - [Main Controller](#main-controller)
+      - [Main View](#main-view)
+    - [Bootstrap](#bootstrap)
+    - [Rendering Partials](#rendering-partials)
+    - [Rails Helpers](#rails-helpers)
+      - [link_to](#link_to)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -24,6 +28,7 @@
 [Go Back to Contents](#table-of-contents)
 
 - [Go Rails - Buffer Clone](https://gorails.com/episodes/rails-for-beginners-part-1-installing-ruby-on-rails?autoplay=1)
+- [Bootstrap5](https://getbootstrap.com/docs/5.0/getting-started/introduction/)
 
 ## Start New Project
 
@@ -80,7 +85,7 @@ Decide how to process a request and define a response
 
 ### About Page
 
-#### Routes
+#### About Route
 
 [Go Back to Contents](#table-of-contents)
 
@@ -104,7 +109,7 @@ In `config/routes.rb`
   # this route will look for a controller about_controller (rails convention)
 ```
 
-#### Controller
+#### About Controller
 
 [Go Back to Contents](#table-of-contents)
 
@@ -128,7 +133,7 @@ In `app/controllers/about_controller.rb`
     end
   ```
 
-#### Views
+#### About View
 
 [Go Back to Contents](#table-of-contents)
 
@@ -173,9 +178,9 @@ The `layout` will `yield` and replace with our `view` content using erb/ruby tag
   </html>
 ```
 
-### Main Route
+### Main Page/Root
 
-#### Routes
+#### Main Route
 
 [Go Back to Contents](#table-of-contents)
 
@@ -210,7 +215,7 @@ In `config/routes.rb`
 
 ```
 
-#### Controller
+#### Main Controller
 
 [Go Back to Contents](#table-of-contents)
 
@@ -229,7 +234,7 @@ In `app/controllers/main_controller.rb`
   end
 ```
 
-#### Views
+#### Main View
 
 [Go Back to Contents](#table-of-contents)
 
@@ -244,3 +249,154 @@ In `app/views/main/index.html.erb`
   ```
 
   ![](https://i.imgur.com/lf5FyrS.png)
+
+### Bootstrap
+
+[Go Back to Contents](#table-of-contents)
+
+- [Bootstrap](https://getbootstrap.com/docs/5.0/getting-started/introduction/)
+
+  ```HTML
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
+  ```
+
+In `app/views/layouts/application.html.erb`
+
+```HTML
+  <!DOCTYPE html>
+  <html>
+      <head>
+          <title>ScheduledTweets</title>
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <%= csrf_meta_tags %>
+          <%= csp_meta_tag %>
+          <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
+          <%= stylesheet_link_tag 'application', media: 'all', 'data-turbolinks-track': 'reload' %>
+          <%= javascript_pack_tag 'application', 'data-turbolinks-track': 'reload' %>
+      </head>
+      <body>
+          <%= yield %>
+      </body>
+  </html>
+```
+
+![](https://i.imgur.com/TBj3HIg.png)
+
+In `app/views/main/index.html.erb`
+
+```HTML
+  <div class="d-flex align-items-center justify-content-center">
+      <h1>Welcome to Scheduled Tweets</h1>
+  </div>
+```
+
+![](https://i.imgur.com/VaobuO9.png)
+
+### Rendering Partials
+
+[Go Back to Contents](#table-of-contents)
+
+Partial is parts of views that we can render inside our view. In this case the `application.html.erb` layout (base template)
+
+In `app/views/shared/_navbar.html.erb`
+
+- Paste the navbar that we copied from bootstrap website
+
+  ```HTML
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">Navbar</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/about">About</a>
+                    </li>
+                </li>
+            </ul>
+        </div>
+    </div>
+    </nav>
+  ```
+
+In `app/views/layouts/application.html.erb`
+
+- Inside our body, we can render our partial `navbar`
+- And we can wrap our view content with a `container` class
+
+  ```HTML
+    <%= render partial: 'shared/navbar' %>
+    <div class="container">
+        <%= yield %>
+    </div>
+  ```
+
+### Rails Helpers
+
+#### link_to
+
+[Go Back to Contents](#table-of-contents)
+
+We can replace our hard coded `/about` with one that is more dynamic that will help us to change the route (if we want to) more easily in several pages
+
+In `app/views/shared/_navbar.html.erb`
+
+```HTML
+  <!-- From -->
+  <a class="nav-link" href="/about">About</a>
+
+  <!-- To -->
+  <%= link_to "About", about_path, class: "nav-link" %>
+  <!--           |          |                 └── css class   -->
+  <!--           |          └── href (/about)                 -->
+  <!--           └── content (text)                           -->
+```
+
+- the `about_path` will generate `/about`
+
+  ![](https://i.imgur.com/mNw8sOp.png)
+
+- Update our navbar to use the `link_to` helper and `url helper`
+
+  ```HTML
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <%= link_to "Navbar", root_path, class: "navbar-brand" %>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <%= link_to "Home", root_path, class: "nav-link active" %>
+                    </li>
+                    <li class="nav-item">
+                        <%= link_to "About", about_path, class: "nav-link" %>
+                    </li>
+                </li>
+            </ul>
+        </div>
+    </div>
+    </nav>
+  ```
+
+Once we update our `navbar` partial, we can update our route to map to a custom route
+
+In `config/routes.rb`
+
+```Ruby
+  # Old way (hard coded)
+  get 'about', to: 'about#index'
+
+  # custom route `about-us` using alias
+  get 'about-us', to: 'about#index', as: :about
+  #        |             |     |           └── alias
+  #        |             |     └── action (function)
+  #        |             └── about controller
+  #        └── /about-us route (custom route)
+```
