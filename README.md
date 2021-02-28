@@ -20,6 +20,8 @@
     - [Rendering Partials](#rendering-partials)
     - [Rails Helpers](#rails-helpers)
       - [link_to](#link_to)
+    - [Flash Messages](#flash-messages)
+      - [Flash Partial](#flash-partial)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -399,4 +401,64 @@ In `config/routes.rb`
   #        |             |     └── action (function)
   #        |             └── about controller
   #        └── /about-us route (custom route)
+```
+
+### Flash Messages
+
+[Go Back to Contents](#table-of-contents)
+
+The `flash` method is inherit from `ApplicationController`, it's a feature of `controllers` and `views`.
+
+We use `flash` as a **hash** (key/value pairs) in `Ruby`, and this is going to store the `value` into our **flash object**
+
+The **flash object** can be assigned in the `controllers` but we need to print them out somewhere in our `views`
+
+```Ruby
+  flash[:notice] = "Logged in successfully"
+  #  |     |                 └── value/message
+  #  |     └── key/variable
+  #  └── method
+```
+
+```Ruby
+  flash.now[:notice] = "Logged in successfully"
+  #  |   |      |                 └── value/message
+  #  |   |      └── key/variable
+  #  |   └── only display the flash message on the current page
+  #  └── method
+```
+
+- when we add the `.now`, this tells Rails to display only for the current `page/view/controller`, it won't persist if we change to another page
+
+Because the **flash object** is shared across our entire rails app, we are going to create a **shared/partial** for it
+
+#### Flash Partial
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new partial `_flash.html.erb`
+
+```Bash
+  touch app/views/shared/_flash.html.erb
+```
+
+In `app/views/shared/_flash.html.erb`
+
+```HTML
+  <%= flash[:notice] %>
+  <%= flash[:alert] %>
+```
+
+In `app/views/layouts/application.html.erb`
+
+- We we can add a new partial in our `<body>` tag
+
+```HTML
+  <body>
+      <%= render partial: 'shared/navbar' %>
+      <div class="container">
+          <%= render partial: 'shared/flash' %>
+          <%= yield %>
+      </div>
+  </body>
 ```
