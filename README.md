@@ -30,9 +30,10 @@
       - [Validate Format And Message](#validate-format-and-message)
     - [Sign Up Page](#sign-up-page)
       - [Registration Route](#registration-route)
-      - [Registration Controller](#registration-controller)
+      - [Registration Controller - New Action](#registration-controller---new-action)
       - [Registration View](#registration-view)
         - [FORM](#form)
+      - [Registration Controller - Create Action](#registration-controller---create-action)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -679,7 +680,7 @@ In `config/routes.rb`
     end
   ```
 
-#### Registration Controller
+#### Registration Controller - New Action
 
 [Go Back to Contents](#table-of-contents)
 
@@ -767,9 +768,36 @@ In `app/views/registrations/new.html.erb`
   - 2. type of request
   - 3. token (to validate the form, so our serve knows that is coming from our app)
 
+- Display errors
+
+  - We can add an `if statement` to check for errors
+
+    ```HTML
+      <% if @user.errors.any? %>
+          <div class="alert alert-danger">
+              <% @user.errors.full_messages.each do |message| %>
+                  <div>
+                      <%= message %>
+                  </div>
+              <% end %>
+          </div>
+      <% end %>
+    ```
+
+    ![](https://i.imgur.com/Xqw7Rx8.png)
+
 ```HTML
   <h1>Sign Up</h1>
   <%= form_with model: @user, url: sign_up_path do |form| %>
+      <% if @user.errors.any? %>
+          <div class="alert alert-danger">
+              <% @user.errors.full_messages.each do |message| %>
+                  <div>
+                      <%= message %>
+                  </div>
+              <% end %>
+          </div>
+      <% end %>
       <div class="mb-3">
           <%= form.label :email%>
           <%= form.text_field :email, class: "form-control", placeholder: "your_email@email.com"%>
@@ -786,4 +814,86 @@ In `app/views/registrations/new.html.erb`
           <%= form.submit "Sign Up", class: "btn btn-primary"%>
       </div>
   <% end %>
+```
+
+#### Registration Controller - Create Action
+
+[Go Back to Contents](#table-of-contents)
+
+We can get all form information that we submitted using the `params`, this could be from the `query params` or from our `form` that has been added to the `params`
+
+In `app/controllers/registrations_controller.rb`
+
+- As an example we could send back to the user the form that he just submitted
+
+  - In this case we are pulling out all the data that we added to `:user` param
+
+  ```Ruby
+    class RegistrationsController < ApplicationController
+      def new
+        @user = User.new
+      end
+
+      def create
+        params
+        # {"authenticity_token"=>"[FILTERED]", "user"=>{"email"=>"test", "password"=>"[FILTERED]", "password_confirmation"=>"[FILTERED]"}, "commit"=>"Sign Up"}
+        params[:user]
+        # "user"=>{"email"=>"test", "password"=>"[FILTERED]", "password_confirmation"=>"[FILTERED]"}
+        render plain: params[:user]
+      end
+    end
+  ```
+
+  ![](https://i.imgur.com/3IWWgK2.png)
+
+- Now we can create our `create` action using `params`
+
+  - We could simply define as:
+
+    ```Ruby
+      def create
+        @user = User.new(params[:user])
+      end
+    ```
+
+    - but this is bad, because the user can inject other things such as an `admin` field as `true` (if you had one) and rail would save this new user as an admin
+
+  - To fix that, we can create a **private** method to allow only certain fields
+
+    ```Ruby
+      private
+
+      def user_params
+        params.require(:user).permit(:email, :password, :password_confirmation)
+        #           |            └── permit only these fields
+        #           └── require a user (if not rails will throw an error)
+      end
+    ```
+
+  - Then we could check if the user was successfully save in our database `@user.save`
+    - If `yes`, redirect to the `root_path` and display the `flash[:notice]` msg
+    - If `no`, redirect to the `:new` (`/sign_up` page)
+
+```Ruby
+  class RegistrationsController < ApplicationController
+    def new
+      @user = User.new
+    end
+
+    def create
+      # @user = User.new(params[:user])
+      @user = User.new(user_params)
+      if @user.save
+        redirect_to root_path, notice: 'Successfully create account'
+      else
+        render :new
+      end
+    end
+
+    private
+
+    def user_params
+      params.require(:user).permit(:email, :password, :password_confirmation)
+    end
+  end
 ```
