@@ -22,6 +22,17 @@
       - [link_to](#link_to)
     - [Flash Messages](#flash-messages)
       - [Flash Partial](#flash-partial)
+    - [User Authentication](#user-authentication)
+      - [Generate User Model](#generate-user-model)
+      - [User Model](#user-model)
+      - [Add User Using Rails Console](#add-user-using-rails-console)
+    - [Validation](#validation)
+      - [Validate Format And Message](#validate-format-and-message)
+    - [Sign Up Page](#sign-up-page)
+      - [Registration Route](#registration-route)
+      - [Registration Controller](#registration-controller)
+      - [Registration View](#registration-view)
+        - [FORM](#form)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -461,4 +472,318 @@ In `app/views/layouts/application.html.erb`
           <%= yield %>
       </div>
   </body>
+```
+
+### User Authentication
+
+#### Generate User Model
+
+[Go Back to Contents](#table-of-contents)
+
+We are going to create a `user` model to store `email` and `password` (digest - hashed)
+
+- `rails g` = rails generate
+- `model User` = `User` (Title case)
+- `email` = type string
+- `password` = hashed password
+
+```Bash
+  rails g model User email:string password_digest:string
+  # invoke  active_record
+  # create    db/migrate/20210228170124_create_users.rb
+  # create    app/models/user.rb
+  # invoke    test_unit
+  # create      test/models/user_test.rb
+  # create      test/fixtures/users.yml
+
+  rails db:migrate
+  # == 20210228170124 CreateUsers: migrating ======================================
+  # -- create_table(:users)
+  #    -> 0.0021s
+  # == 20210228170124 CreateUsers: migrated (0.0021s) =============================
+```
+
+#### User Model
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/models/user.rb`
+
+- We need to add `has_secure_password`, the `has_secure_password` will use our `password_digest` to add a virtual `password` and `password confirmation` attributes to our user. It uses **bcrypt** to authenticate/save the use
+
+  | attribute             | type   | description      |
+  | --------------------- | ------ | ---------------- |
+  | email                 | string | column in the db |
+  | password_digest       | string | column in the db |
+  |                       |        |                  |
+  | password              | string | virtual          |
+  | password_confirmation | string | virtual          |
+
+  - we are never going to interact directly with `password_digest`, we'll always use the `password` and `password_confirmation`
+
+  - We need to install **bcrypt** gem for that
+
+```Ruby
+  class User < ApplicationRecord
+    has_secure_password
+  end
+
+```
+
+#### Add User Using Rails Console
+
+After installing **bcrypt**, we can create our first user using the `rails console`
+
+```Bash
+  rails c
+  # Running via Spring preloader in process 8223
+  # Loading development environment (Rails 6.1.3)
+
+  User
+  # => User (call 'User.connection' to establish a connection)
+
+  User.all
+  #   (0.4ms)  SELECT sqlite_version(*)
+  #  User Load (0.1ms)  SELECT "users".* FROM "users" /* loading for inspect */ LIMIT ?  [["LIMIT", 11]]
+
+  # => #<ActiveRecord::Relation []>
+
+  User.create({email: "roger@email.com", password: "123", password_confirmation: "123"})
+  # (0.5ms)  SELECT sqlite_version(*)
+  #  TRANSACTION (0.1ms)  begin transaction
+  #  User Create (0.3ms)  INSERT INTO "users" ("email", "password_digest", "created_at", "updated_at") VALUES (?, ?, ?, ?)  [["email", "roger@email.com"], ["password_digest", "$2a$12$W0lFDMCW.VXzvTAigQpBIuOv2MhomwPRcnjWGzcStNOKQqIwexB7e"], ["created_at", "2021-02-28 17:27:33.442553"], ["updated_at", "2021-02-28 17:27:33.442553"]]
+  #  TRANSACTION (1.6ms)  commit transaction
+
+  # => #<User id: 1, email: "roger@email.com", password_digest: [FILTERED], created_at: "2021-02-28 17:27:33.442553000 +0000", updated_at: "2021-02-28 17:27:33.442553000 +0000">
+
+  User.first
+  # User Load (0.2ms)  SELECT "users".* FROM "users" ORDER BY "users"."id" ASC LIMIT ?  [["LIMIT", 1]]
+
+  # => #<User id: 1, email: "roger@email.com", password_digest: [FILTERED], created_at: "2021-02-28 17:27:33.442553000 +0000", updated_at: "2021-02-28 17:27:33.442553000 +0000">
+```
+
+### Validation
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/models/user.rb`
+
+- We can use rails validation to check if a field is `presence`
+
+  ```Ruby
+    class User < ApplicationRecord
+      has_secure_password
+      validates :email, presence: true
+    end
+  ```
+
+  - The `validates :email, presence: true` will check if an email is present before saving into the database.
+
+Another way to validate the email, is by updating our migration file to require an email
+
+In `db/migrate/20210228170124_create_users.rb`
+
+- Add `, null: false` to our email field
+
+  ```Ruby
+    class CreateUsers < ActiveRecord::Migration[6.1]
+      def change
+        create_table :users do |t|
+          t.string :email, null: false
+          t.string :password_digest
+
+          t.timestamps
+        end
+      end
+    end
+  ```
+
+  - Because we changed our migration file, we need to undo our modification and then migrate again to apply the modifications to our database.
+
+  ```Bash
+    rails db:rollback
+    # == 20210228170124 CreateUsers: reverting ======================================
+    # -- drop_table(:users)
+    #    -> 0.0018s
+    # == 20210228170124
+
+    rails db:migrate
+    # == 20210228170124 CreateUsers: migrating ======================================
+    # -- create_table(:users)
+    #    -> 0.0016s
+    # == 20210228170124 CreateUsers: migrated (0.0018s) ============================= CreateUsers: reverted (0.0121s) =============================
+
+    # an alternative we could use a single command to do that
+    rails db:migrate:redo
+    # == 20210228170124 CreateUsers: reverting ======================================
+    # -- drop_table(:users)
+    #    -> 0.0016s
+    # == 20210228170124 CreateUsers: reverted (0.0031s) =============================
+
+    # == 20210228170124 CreateUsers: migrating ======================================
+    # -- create_table(:users)
+    #    -> 0.0015s
+    # == 20210228170124 CreateUsers: migrated (0.0016s) =============================
+  ```
+
+On `Rails Console`, if we try to save an user without email we will get an User of `id: nil`, this means that this user wasn't saved in the database.
+
+```Bash
+  rails c
+
+  User.create({password: "123", password_confirmation: "123"})
+  # (0.4ms)  SELECT sqlite_version(*)
+  # => #<User id: nil, email: nil, password_digest: [FILTERED], created_at: nil, updated_at: nil>
+```
+
+#### Validate Format And Message
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/models/user.rb`
+
+- We can add a regex to validate the format
+
+  ```Ruby
+    class User < ApplicationRecord
+      has_secure_password
+      validates :email, presence: true, format: { with: /\A[^@\s]+@[^@\s]+\z/, message: "must be a valid email address" }
+    end
+  ```
+
+  ```Bash
+    rails c
+
+    User.create({email: "A", password: "123", password_confirmation: "123"})
+    #   (0.4ms)  SELECT sqlite_version(*)
+    # => #<User id: nil, email: "A", password_digest: [FILTERED], created_at: nil, updated_at: nil>
+  ```
+
+### Sign Up Page
+
+#### Registration Route
+
+[Go Back to Contents](#table-of-contents)
+
+In `config/routes.rb`
+
+- Add the `sign_up` route and map to `registrations` controller > `new` action/function
+
+  ```Ruby
+    Rails.application.routes.draw do
+      # GEt /about
+      # get 'about', to: 'about#index'
+      get 'about-us', to: 'about#index', as: :about
+      get 'sign_up', to: 'registrations#new'
+      root to: 'main#index'
+    end
+  ```
+
+#### Registration Controller
+
+[Go Back to Contents](#table-of-contents)
+
+Create a the `registration_controller.rb`
+
+```Bash
+  touch app/controllers/registrations_controller.rb
+```
+
+In `app/controllers/registrations_controller.rb`
+
+- We can create a new instance variable `@user`, when we create an **instance variable** this variable is available in our **views**
+
+```Ruby
+  class RegistrationsController < ApplicationController
+    def new
+      @user = User.new
+    end
+  end
+```
+
+#### Registration View
+
+[Go Back to Contents](#table-of-contents)
+
+Crate the `registrations` > `new` view
+
+```Bash
+  touch app/views/registrations/new.html.erb
+```
+
+In `app/views/registrations/new.html.erb`
+
+- We can use the `@user` instance to print on our view
+
+  ```Ruby
+    <h1>Sign Up</h1>
+    <%= @user %>
+  ```
+
+##### FORM
+
+[Go Back to Contents](#table-of-contents)
+
+To work with forms we need to update our `routes.rb`
+
+In `config/routes.rb`
+
+- Add a `POST` route for `sign_up`
+
+  ```Ruby
+    Rails.application.routes.draw do
+      get 'about-us', to: 'about#index', as: :about
+      get 'sign_up', to: 'registrations#new'
+      post 'sign_up', to: 'registrations#create'
+
+      root to: 'main#index'
+    end
+  ```
+
+In `app/views/registrations/new.html.erb`
+
+- In rails we can generate a form using an instance variable/object to create all the necessary fields
+
+  ```HTML
+    <h1>Sign Up</h1>
+    <%= form_with model: @user, url: sign_up_path do |form| %>
+        <%= form.text_field :email %>
+        <%= form.password_field :password %>
+        <%= form.password_field :password_confirmation %>
+    <% end %>
+  ```
+
+  ```Ruby
+    form_with model: @user, url: sign_up_path do |form|
+    #    |      |      |           └── /sign_up  (url)
+    #    |      |      └── instance variable (User model)
+    #    |      └── model
+    #    └── create a form with
+  ```
+
+  ![](https://i.imgur.com/uwdjqUB.png)
+
+  - 1. url
+  - 2. type of request
+  - 3. token (to validate the form, so our serve knows that is coming from our app)
+
+```HTML
+  <h1>Sign Up</h1>
+  <%= form_with model: @user, url: sign_up_path do |form| %>
+      <div class="mb-3">
+          <%= form.label :email%>
+          <%= form.text_field :email, class: "form-control", placeholder: "your_email@email.com"%>
+      </div>
+      <div class="mb-3">
+          <%= form.label :password%>
+          <%= form.password_field :password, class: "form-control", placeholder: "password" %>
+      </div>
+      <div class="mb-3">
+          <%= form.label :password_confirmation%>
+          <%= form.password_field :password_confirmation, class: "form-control", placeholder: "password" %>
+      </div>
+      <div class="mb-3">
+          <%= form.submit "Sign Up", class: "btn btn-primary"%>
+      </div>
+  <% end %>
 ```
