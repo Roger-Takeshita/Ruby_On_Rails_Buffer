@@ -34,7 +34,10 @@
       - [Registration View](#registration-view)
         - [FORM](#form)
       - [Registration Controller - Create Action](#registration-controller---create-action)
-    - [Sign In - Session Cookie](#sign-in---session-cookie)
+    - [Session Cookie](#session-cookie)
+    - [Logout - Session Controllers](#logout---session-controllers)
+      - [Session Route](#session-route)
+      - [Session Controller](#session-controller)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -899,7 +902,7 @@ In `app/controllers/registrations_controller.rb`
   end
 ```
 
-### Sign In - Session Cookie
+### Session Cookie
 
 [Go Back to Contents](#table-of-contents)
 
@@ -973,3 +976,69 @@ We can check our cookie under `Application Tab`
 ![](https://i.imgur.com/vd63ic4.png)
 
 - As we can see it's marked as `HttpOnly` this means that JavaScript cannot access it
+
+### Logout - Session Controllers
+
+[Go Back to Contents](#table-of-contents)
+
+To logout from our app, we are going to create a new controller called `session_controller.rb`
+
+#### Session Route
+
+[Go Back to Contents](#table-of-contents)
+
+Add a new route that maps a `DELETE` request to `sessions > destroy`
+
+```Ruby
+  Rails.application.routes.draw do
+    get 'about-us', to: 'about#index', as: :about
+    get 'sign_up', to: 'registrations#new'
+    post 'sign_up', to: 'registrations#create'
+    delete 'logout', to: 'sessions#destroy'
+
+    root to: 'main#index'
+  end
+```
+
+#### Session Controller
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new controller:
+
+```Bash
+  touch app/controllers/sessions_controller.rb
+```
+
+In `app/controllers/sessions_controller.rb`
+
+- Basically our `destroy` action will set the current `session[:user_id]` to `nil` then it will redirect to the home page.
+
+  ```Ruby
+    class SessionsController < ApplicationController
+      def destroy
+        session[:user_id] = nil
+        redirect_to root_path, notice: 'Logged out'
+      end
+    end
+  ```
+
+In `app/views/main/index.html.erb`
+
+- We can logout using two ways:
+
+  - link_to
+  - button_to
+
+- Both will work, but using `button_to` is the more appropriate way to logout, because `button_to` creates a hidden form that sends a `DELETE` method
+
+  ```HTML
+    <div class="d-flex align-items-center justify-content-center">
+        <h1>Welcome to Scheduled Tweets</h1>
+    </div>
+    <% if @user %>
+        Logged in as: <%= @user.email %>
+        <%= link_to "Logout", logout_path, method: :delete %>
+        <%= button_to "Logout", logout_path, method: :delete %>
+    <% end %>
+  ```
