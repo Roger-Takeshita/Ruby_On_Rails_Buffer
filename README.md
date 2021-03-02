@@ -34,6 +34,7 @@
       - [Registration View](#registration-view)
         - [FORM](#form)
       - [Registration Controller - Create Action](#registration-controller---create-action)
+    - [Sign In - Session Cookie](#sign-in---session-cookie)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -897,3 +898,78 @@ In `app/controllers/registrations_controller.rb`
     end
   end
 ```
+
+### Sign In - Session Cookie
+
+[Go Back to Contents](#table-of-contents)
+
+To sign in we are going to use **session cookie** is stored in the user's browser. The **session cookie** is encrypted and no one can read it or modify.
+
+In `app/controllers/registrations_controller.rb`
+
+- We are going to update the `create` action to store the `@user.id` in the **session cookie**
+
+  ```Ruby
+    def create
+      @user = User.new(user_params)
+      if @user.save
+        session[:user_id] = @user.id
+        redirect_to root_path, notice: 'Successfully create account'
+      else
+        render :new
+      end
+    end
+  ```
+
+In `app/controllers/main_controller.rb`
+
+- In our `index` function, we check if there is a cookie before querying the database.
+
+  ```Ruby
+    class MainController < ApplicationController
+      def index
+        if session[:user_id]
+          @user = User.find(session[:user_id])
+        end
+      end
+    end
+  ```
+
+  - If we use `User.find()`, and rails doesn't find a user, then I will throw an error (break the app).
+  - A work around to this problem we can use `User.find_by(id: session[:user_id])` = `SELECT * FROM users WHERE id = user_id;`
+
+    ```Ruby
+      class MainController < ApplicationController
+        def index
+          if session[:user_id]
+            @user = User.find_by(session[:user_id])
+          end
+        end
+      end
+
+      # Shorter version
+      class MainController < ApplicationController
+        def index
+          @user = User.find_by(id: session[:user_id]) if session[:user_id]
+        end
+      end
+    ```
+
+In `app/views/main/index.html.erb`
+
+- Then if we have a user, we can go to our `main` index
+
+  ```HTML
+    <div class="d-flex align-items-center justify-content-center">
+        <h1>Welcome to Scheduled Tweets</h1>
+        <% if @user %>
+            Logged in as: <%= @user.email %>
+        <% end %>
+    </div>
+  ```
+
+We can check our cookie under `Application Tab`
+
+![](https://i.imgur.com/vd63ic4.png)
+
+- As we can see it's marked as `HttpOnly` this means that JavaScript cannot access it
