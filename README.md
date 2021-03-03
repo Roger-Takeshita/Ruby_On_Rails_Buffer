@@ -34,10 +34,18 @@
       - [Registration View](#registration-view)
         - [FORM](#form)
       - [Registration Controller - Create Action](#registration-controller---create-action)
-    - [Session Cookie](#session-cookie)
+    - [gitSession Cookie](#gitsession-cookie)
     - [Logout - Session Controllers](#logout---session-controllers)
       - [Session Route](#session-route)
       - [Session Controller](#session-controller)
+    - [Sign In](#sign-in)
+      - [Sign In Route](#sign-in-route)
+      - [Sign In Controller](#sign-in-controller)
+      - [Sign In View](#sign-in-view)
+    - [Get Current User Anywhere](#get-current-user-anywhere)
+      - [Current Model](#current-model)
+      - [Update Views](#update-views)
+      - [Update Navbar](#update-navbar)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -902,7 +910,7 @@ In `app/controllers/registrations_controller.rb`
   end
 ```
 
-### Session Cookie
+### gitSession Cookie
 
 [Go Back to Contents](#table-of-contents)
 
@@ -1042,3 +1050,214 @@ In `app/views/main/index.html.erb`
         <%= button_to "Logout", logout_path, method: :delete %>
     <% end %>
   ```
+
+### Sign In
+
+#### Sign In Route
+
+[Go Back to Contents](#table-of-contents)
+
+Create two new routes:
+
+- One route to display the `sign in` page/view
+- The other one to submit the `sign in` form
+
+In `config/routes.rb`
+
+```Ruby
+  Rails.application.routes.draw do
+    get 'about-us', to: 'about#index', as: :about
+
+    get 'sign_up', to: 'registrations#new'
+    post 'sign_up', to: 'registrations#create'
+
+    get 'sign_in', to: 'sessions#new'
+    post 'sign_in', to: 'sessions#create'
+    delete 'logout', to: 'sessions#destroy'
+
+    root to: 'main#index'
+  end
+```
+
+#### Sign In Controller
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/controllers/sessions_controller.rb`
+
+- Create the `new` and `create` actions
+
+  - Because `new` action is only used to render the `new.html.erb` we don't need to pass anything to the view. We just need to create the form in our `new.html.erb`
+  - The `create` action is used to validate the user
+    - First we check if there is any user with the current email
+    - Then we use the `authenticate` method to validate the user password (compare the hashed password with the hashed password in our database)
+      - Just like the `password` and `password confirmation`, `password_digest` gives us another method to `authenticate` the user
+      - If the passwords match, then we assign the `user.id` to our session cookie and redirect to the main page
+      - if the passwords don't match, then we display a `flash` message and redirect again to the `new.html.erb` page
+
+  ```Ruby
+    class SessionsController < ApplicationController
+      def new
+      end
+
+      def create
+        user = User.find_by(email: params[:email])
+        if user.present? && user.authenticate(params[:password])
+          session[:user_id]=user.id
+          redirect_to root_path, notice: 'Logged in successfully'
+        else
+          flash[:alert] = 'Invalid email or password'
+          render :new
+        end
+      end
+
+      def destroy
+        session[:user_id] = nil
+        redirect_to root_path, notice: 'Logged out'
+      end
+    end
+  ```
+
+#### Sign In View
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new folder and file
+
+```Bash
+  touch app/views/sessions/new.html.erb
+```
+
+In `app/views/sessions/new.html.erb`
+
+```HTML
+  <h1>Sign In</h1>
+  <%= form_with url: sign_in_path do |form| %>
+      <div class="mb-3">
+          <%= form.label :email%>
+          <%= form.text_field :email, class: "form-control", placeholder: "your_email@email.com"%>
+      </div>
+      <div class="mb-3">
+          <%= form.label :password%>
+          <%= form.password_field :password, class: "form-control", placeholder: "password" %>
+      </div>
+      <div class="mb-3">
+          <%= form.submit "Sign In", class: "btn btn-primary"%>
+      </div>
+  <% end%>
+```
+
+### Get Current User Anywhere
+
+[Go Back to Contents](#table-of-contents)
+
+To use the current authenticated user in any controller/view, we just need to remove from the `main_controller` and add to our `application_controller`, because all the controllers inherit from the `application_controller`
+
+In `app/controllers/main_controller.rb`
+
+```Ruby
+  class MainController < ApplicationController
+  end
+```
+
+In `app/controllers/application_controller.rb`
+
+- We can create a new method called `set_current_user` and set the `Current.user` (that we are going to create) to our query, instead of our instance variable `@user`
+- Before any action we are going to run `set_current_user`
+
+  ```Ruby
+    class ApplicationController < ActionController::Base
+      before_action :set_current_user
+
+      def set_current_user
+        Current.user = User.find_by(id: session[:user_id]) if session[:user_id]
+      end
+    end
+  ```
+
+#### Current Model
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new model called `current`
+
+```Bash
+  touch app/models/current.rb
+```
+
+Our `Current` class inherits from `ActiveSupport::CurrentAttributes`, and it will have only one `attribute` (`:user`)
+
+The `ActiveSupport` helps us manage the `Current.user` from other sessions, this way we can have multiple `Current.user` without clashing/overriding other session user.
+
+```Ruby
+  class Current < ActiveSupport::CurrentAttributes
+    attribute :user
+  end
+```
+
+#### Update Views
+
+[Go Back to Contents](#table-of-contents)
+
+Now that we have configured the `Current.user`, we can refactor our views to use the `Current.user` instead of the instance `@user`
+
+In `app/views/main/index.html.erb`
+
+```HTML
+  <div class="d-flex align-items-center justify-content-center">
+      <h1>Welcome to Scheduled Tweets</h1>
+  </div>
+  <% if Current.user %>
+      Logged in as: <%= Current.user.email %>
+      <%= button_to "Logout", logout_path, method: :delete %>
+  <% end %>
+```
+
+#### Update Navbar
+
+[Go Back to Contents](#table-of-contents)
+
+Update our navbar to display the current user and add `sign up` and `login` buttons
+
+In `app/views/shared/_navbar.html.erb`
+
+```HTML
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+      <div class="container-fluid">
+          <%= link_to "Navbar", root_path, class: "navbar-brand" %>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+              <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarNav">
+              <ul class="navbar-nav">
+                  <li class="nav-item">
+                      <%= link_to "Home", root_path, class: "nav-link active" %>
+                  </li>
+                  <li class="nav-item">
+                      <%= link_to "About", about_path, class: "nav-link" %>
+                  </li>
+              </li>
+          </ul>
+          <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+              <% if Current.user %>
+                  <li class="nav-item">
+                      <span class="navbar-text">
+                          <%= Current.user.email %>
+                      </span>
+                  </li>
+                  <li class="nav-item">
+                      <%= button_to "Logout", logout_path, method: :delete, class: "btn btn-outline-secondary" %>
+                  </li>
+              <% else %>
+                  <li class="nav-item">
+                      <%= link_to "Sign Up", sign_up_path, class: "nav-link" %>
+                  </li>
+                  <li class="nav-item">
+                      <%= link_to "Login", sign_in_path, class: "nav-link"%>
+                  </li>
+              <% end %>
+          </ul>
+      </div>
+  </div>
+  </nav>
+```
