@@ -52,6 +52,12 @@
       - [Password Controller](#password-controller)
       - [Password Edit View](#password-edit-view)
       - [Update Navbar](#update-navbar-1)
+    - [Reset Password](#reset-password)
+      - [Password Reset Route](#password-reset-route)
+      - [Password Reset Controller](#password-reset-controller)
+        - [ACTIONMAILER](#actionmailer)
+      - [Password Reset View](#password-reset-view)
+      - [Update Sign In Form](#update-sign-in-form)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -1401,4 +1407,124 @@ In `app/views/shared/_navbar.html.erb`
     <li class="nav-item">
         <%= link_to Current.user.email, edit_password_path, class: "nav-link" %>
     </li>
+  ```
+
+### Reset Password
+
+#### Password Reset Route
+
+[Go Back to Contents](#table-of-contents)
+
+Create two new routes to `display` (`GET`) the form, and another route to `submit` (`POST`) the form.
+
+In `config/routes.rb`
+
+```Ruby
+  get 'password/reset', to: 'password_resets#new'
+  post 'password/reset', to: 'password_resets#create'
+```
+
+#### Password Reset Controller
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new controller
+
+```Bash
+  touch app/controllers/password_resets_controller.rb
+```
+
+In `app/controllers/password_resets_controller.rb`
+
+- Create `new` action to render our form (`new.html.erb`)
+- Create `create` action to receive the form
+
+  - Call our `PasswordMailer`, set some params (`user:`) and call the `reset` method to send a reset email. Chain a `deliver_later` method to run in the background (`async`)
+    - Another option would be `deliver_now`, but this will make our app a little slower
+
+```Ruby
+  class PasswordResetsController < ApplicationController
+    def new
+    end
+
+    def create
+      @user = User.find_by(email: params[:email])
+      return unless @user.present?
+
+      PasswordMailer.with(user: @user).reset.deliver_later
+      redirect_to root_path,
+                  notice: 'If an account with that email was found, we have sent a link to reset your password.'
+    end
+  end
+```
+
+##### ACTIONMAILER
+
+[Go Back to Contents](#table-of-contents)
+
+We are going to use the CLI to create a mailer (a builtin rails mailer)
+
+```Bash
+  rails g mailer Password reset
+  #     |    |      |       └── email
+  #     |    |      └── Password Mailer
+  #     |    └── mailer
+  #     └── generator
+
+  # Running via Spring preloader in process 12749
+  #     create  app/mailers/password_mailer.rb
+  #     invoke  erb
+  #     create    app/views/password_mailer
+  #     create    app/views/password_mailer/reset.text.erb
+  #     create    app/views/password_mailer/reset.html.erb
+  #     invoke  test_unit
+  #     create    test/mailers/password_mailer_test.rb
+  #     create    test/mailers/previews/password_mailer_preview.rb
+```
+
+- As we can see rails created `app/mailers/password_mailer.rb` for us
+- And also created two formats for us
+  - `app/views/password_mailer/reset.text.erb` (text)
+  - `app/views/password_mailer/reset.html.erb` (html)
+
+#### Password Reset View
+
+[Go Back to Contents](#table-of-contents)
+
+Crate a new view
+
+```Bash
+  touch app/views/password_resets/new.html.erb
+```
+
+In `app/views/password_resets/new.html.erb`
+
+```HTML
+  <h1>Forgot your password?</h1>
+  <%= form_with url: password_reset_path do |form| %>
+      <div class="mb-3">
+          <%= form.label :email%>
+          <%= form.text_field :email, class: "form-control", placeholder: "your_email@email.com"%>
+      </div>
+      <div class="mb-3">
+          <%= form.submit "Reset Password", class: "btn btn-primary"%>
+      </div>
+  <% end %>
+
+```
+
+#### Update Sign In Form
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/views/sessions/new.html.erb`
+
+- Add a new `link_to`
+
+  ```HTML
+    <div class="mb-3">
+        <%= form.label :password%>
+        <%= form.password_field :password, class: "form-control", placeholder: "password" %>
+        <%= link_to "Forgot your password?", password_reset_path %>
+    </div>
   ```
