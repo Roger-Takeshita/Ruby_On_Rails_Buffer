@@ -42,10 +42,16 @@
       - [Sign In Route](#sign-in-route)
       - [Sign In Controller](#sign-in-controller)
       - [Sign In View](#sign-in-view)
-    - [Get Current User Anywhere](#get-current-user-anywhere)
+    - [Get Current User Anywhere - ApplicationController](#get-current-user-anywhere---applicationcontroller)
       - [Current Model](#current-model)
       - [Update Views](#update-views)
       - [Update Navbar](#update-navbar)
+    - [Update Password](#update-password)
+      - [Password Route](#password-route)
+      - [Application Controller](#application-controller)
+      - [Password Controller](#password-controller)
+      - [Password Edit View](#password-edit-view)
+      - [Update Navbar](#update-navbar-1)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -1147,7 +1153,7 @@ In `app/views/sessions/new.html.erb`
   <% end%>
 ```
 
-### Get Current User Anywhere
+### Get Current User Anywhere - ApplicationController
 
 [Go Back to Contents](#table-of-contents)
 
@@ -1261,3 +1267,138 @@ In `app/views/shared/_navbar.html.erb`
   </div>
   </nav>
 ```
+
+### Update Password
+
+#### Password Route
+
+[Go Back to Contents](#table-of-contents)
+
+Add two new routes to our `routes.rb`
+
+In `config/routes.rb`
+
+- give a new name to our path
+
+  ```Ruby
+    get 'password', to: 'passwords#edit', as: :edit_password
+    patch 'password', to: 'passwords#update'
+  ```
+
+#### Application Controller
+
+[Go Back to Contents](#table-of-contents)
+
+Before we started coding the password controller, we need to define another "global" method `require_user_logged_in` so we can use this method before each private route.
+
+In `app/controllers/application_controller.rb`
+
+- Add the `require_user_logged_in` to check if the `Current.user` is `nil`. If `true`, redirect to `sign_in` page with an alert message
+
+  ```Ruby
+    class ApplicationController < ActionController::Base
+      before_action :set_current_user
+
+      def set_current_user
+        Current.user = User.find_by(id: session[:user_id]) if session[:user_id]
+      end
+
+      def require_user_logged_in
+        return unless Current.user.nil?
+
+        redirect_to sign_in_path,
+                    alert: 'You must be signed in to do that.'
+      end
+    end
+  ```
+
+#### Password Controller
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new controller
+
+```Bash
+  touch app/controllers/passwords_controller.rb
+```
+
+In `app/controllers/passwords_controller.rb`
+
+- Create a private helper to require a `:user` andn only allow for `:password` and `:password_confirmation` to be edited
+
+  ```Ruby
+    class PasswordsController < ApplicationController
+      before_action :require_user_logged_in
+
+      def edit
+      end
+
+      def update
+        if Current.user.update(password_params)
+          redirect_to root_path, notice: 'Password updated successfully!'
+        else
+          render :edit
+        end
+      end
+
+      private
+
+      def password_params
+        params.require(:user).permit(:password, :password_confirmation)
+      end
+    end
+  ```
+
+#### Password Edit View
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new view
+
+```Bash
+  touch app/views/passwords/edit.html.erb
+```
+
+In `app/views/passwords/edit.html.erb`
+
+- Create a new form similar to the `sign up` form
+
+  ```HTML
+    <h1>Edit Password</h1>
+    <%= form_with model: @user, url: edit_password_path do |form| %>
+        <% if @user.errors.any? %>
+            <div class="alert alert-danger">
+                <% @user.errors.full_messages.each do |message| %>
+                    <div>
+                        <%= message %>
+                    </div>
+                <% end %>
+            </div>
+        <% end %>
+        <div class="mb-3">
+            <%= form.label :password%>
+            <%= form.password_field :password, class: "form-control", placeholder: "password" %>
+        </div>
+        <div class="mb-3">
+            <%= form.label :password_confirmation%>
+            <%= form.password_field :password_confirmation, class: "form-control", placeholder: "password" %>
+        </div>
+        <div class="mb-3">
+            <%= form.submit "Udpate Password", class: "btn btn-primary"%>
+        </div>
+    <% end %>
+  ```
+
+#### Update Navbar
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/views/shared/_navbar.html.erb`
+
+- Update our navbar to add a link to `edit_password` path
+
+  ```HTML
+    <li class="nav-item">
+        <%= link_to Current.user.email, edit_password_path, class: "nav-link" %>
+    </li>
+  ```
