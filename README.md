@@ -68,6 +68,12 @@
         - [RESET PASSWORD CONTROLLER](#reset-password-controller)
         - [RESET PASSWORD VIEW](#reset-password-view)
     - [Generate Environment Variables](#generate-environment-variables)
+    - [Omniauth-Twitter](#omniauth-twitter)
+      - [Initializers - Middleware](#initializers---middleware)
+      - [Routes (Special Routes)](#routes-special-routes)
+      - [Index Page](#index-page)
+      - [Twitter Callback Route](#twitter-callback-route)
+      - [Twitter Controller](#twitter-controller)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -1926,3 +1932,108 @@ On `Terminal` we can get our api keys
     Rails.application.credentials.dig(:twitter, :api_key)
     # => "faljsdkfjaljsdfjlsoiifjo"
   ```
+
+### Omniauth-Twitter
+
+[Go Back to Contents](#table-of-contents)
+
+Add the following gems
+
+```Bash
+  bundle add omniauth-twitter omniauth-rails_csrf_protection
+```
+
+- We need to add `omniauth-rails_csrf_protection` to be more secure, previously we had to make a `GET` request, now we do a `POST` request and send some information with the request
+
+#### Initializers - Middleware
+
+[Go Back to Contents](#table-of-contents)
+
+Then in our `initializes` folder, we have to create a new file called `omniauth.rb`
+
+```Bash
+  touch config/initializers/omniauth.rb
+```
+
+In `config/initializers/omniauth.rb`
+
+- Here we are going to setup our OmniAuth, to do so we need o call `Rails.application.config.middleware.use`.
+- Then we pass the name of our application `OmniAuth::Builder`
+- Then we specify the `provider` as `:twitter` (this will make rails look up for the twitter gem for us)
+
+  ```Ruby
+    Rails.application.config.middleware.use OmniAuth::Builder do
+      provider :twitter,
+               Rails.application.credentials.dig(:twitter, :api_key),
+               Rails.application.credentials.dig(:twitter, :api_secret)
+    end
+  ```
+
+#### Routes (Special Routes)
+
+[Go Back to Contents](#table-of-contents)
+
+If we check our rails routes [http://localhost:3000/rails/info/routes] we won't see an `OmniAuth` route.
+
+If we try to visit [http://localhost:3000/auth/twitter] we get the following error
+
+> No route matches [GET] "/auth/twitter"
+
+![](https://i.imgur.com/mNrdRrS.png)
+
+This is because OmniAuth only accepts `POST` request
+
+#### Index Page
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/views/main/index.html.erb`
+
+- Let's create a button so we can make a post request to our `/auth/twitter`
+
+  ```Ruby
+    <div class="d-flex align-items-center justify-content-center">
+        <h1 class="mt-4">Welcome to Scheduled Tweets</h1>
+    </div>
+    <%= button_to "Connect Twitter", "/auth/twitter", method: :post, class: "btn btn-primary" %>
+  ```
+
+![](https://i.imgur.com/oW5yqo8.png)
+
+After the user successfully connected his twitter account to our app, twitter will redirect to our callback route, with the `oauth_token` and `oauth_verifier` params
+
+```Bash
+  http://localhost:3000/auth/twitter/callback?oauth_token=QGoDzgAAAAABNU53AAABd_rvTH8&oauth_verifier=iw9nXvXqKhXnNg1QW9UWlKHQmUNp9qYZ
+```
+
+We now can create our new route `auth/twitter/callback` to get those params and save in our database to connect our twitter account
+
+#### Twitter Callback Route
+
+[Go Back to Contents](#table-of-contents)
+
+In `config/routes.rb`
+
+- Add our callback route
+
+  ```Ruby
+    get 'auth/twitter/callback', to: 'omniauth_callbacks#twitter'
+  ```
+
+#### Twitter Controller
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new controller `omniauth_callbacks_controller.rb`
+
+In `app/controllers/omniauth_callbacks_controller.rb`
+
+```Ruby
+  class OmniauthCallbacksController < ApplicationController
+    def twitter
+      render plain: 'Success!'
+    end
+  end
+```
+
+![](https://i.imgur.com/qCjvVsy.png)
