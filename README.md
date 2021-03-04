@@ -67,6 +67,7 @@
         - [LOGS](#logs)
         - [RESET PASSWORD CONTROLLER](#reset-password-controller)
         - [RESET PASSWORD VIEW](#reset-password-view)
+    - [Generate Environment Variables](#generate-environment-variables)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -1873,4 +1874,55 @@ In `app/views/password_resets/edit.html.erb`
             <%= form.submit "Reset Password", class: "btn btn-primary"%>
         </div>
     <% end %>
+  ```
+
+### Generate Environment Variables
+
+[Go Back to Contents](#table-of-contents)
+
+Rails has a builtin environment system that can store and encrypt our environment variables
+
+```Bash
+  rails credentials:edit --environment=development
+
+  # Adding config/credentials/development.key to store the encryption key: fasdfasdfasdfasdfasdfasdfasdfasdfa
+
+  #  Save this in a password manager your team can access.
+
+  #  If you lose the key, no one, including you, can access anything encrypted with it.
+
+  #        create  config/credentials/development.key
+
+  #  Ignoring config/credentials/development.key so it won't end up in Git history:
+
+  #        append  .gitignore
+```
+
+- This will open a file so we can add our environment variables
+
+In `2312312.development.yml`
+
+- Add your twitter keys
+
+  ```Yaml
+    twitter:
+        api_key: faljsdkfjaljsdfjlsoiifjo
+        api_secret: fasdfasdg123123klkhkjhlafkhdflaksjdhflk
+  ```
+
+On `Terminal` we can get our api keys
+
+```Bash
+  rails c
+
+  Rails.application.credentials.twitter
+
+  # => {:api_key=>"faljsdkfjaljsdfjlsoiifjo", :api_secret=>"fasdfasdg123123klkhkjhlafkhdflaksjdhflk"}
+```
+
+- We can get an individual keys from the hash using `dig`
+
+  ```Bash
+    Rails.application.credentials.dig(:twitter, :api_key)
+    # => "faljsdkfjaljsdfjlsoiifjo"
   ```
