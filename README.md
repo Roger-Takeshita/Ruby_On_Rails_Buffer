@@ -74,6 +74,8 @@
       - [Index Page](#index-page)
       - [Twitter Callback Route](#twitter-callback-route)
       - [Twitter Controller](#twitter-controller)
+    - [Twitter Model](#twitter-model)
+      - [Update Twitter Controller](#update-twitter-controller)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -2037,3 +2039,146 @@ In `app/controllers/omniauth_callbacks_controller.rb`
 ```
 
 ![](https://i.imgur.com/qCjvVsy.png)
+
+### Twitter Model
+
+[Go Back to Contents](#table-of-contents)
+
+Generate a Twitter model
+
+```Bash
+  rails g model TwitterAccount user:belongs_to name username image token secret
+  # Running via Spring preloader in process 76050
+  #     invoke  active_record
+  #     create    db/migrate/20210304034024_create_twitter_accounts.rb
+  #     create    app/models/twitter_account.rb
+  #     invoke    test_unit
+  #     create      test/models/twitter_account_test.rb
+  #     create      test/fixtures/twitter_accounts.yml
+
+  rails db:migrate
+  # == 20210304034024 CreateTwitterAccounts: migrating ============================
+  # -- create_table(:twitter_accounts)
+  #    -> 0.0030s
+  # == 20210304034024 CreateTwitterAccounts: migrated (0.0031s) ===================
+```
+
+- `user:belongs_to`, each twitter account points to a user
+
+In `app/models/twitter_account.rb`
+
+- Rails generated for us
+
+  ```Ruby
+    class TwitterAccount < ApplicationRecord
+      belongs_to :user
+    end
+  ```
+
+In `app/models/user.rb`
+
+- We can do the same thing to connect our `User` model with `TwitterAccount` model
+
+  - **ATTENTION** the `:twitter_accounts` is plural
+  - This connection allows us to `CRUD` our twitter account through the `User` model
+
+  ```Ruby
+    class User < ApplicationRecord
+      has_many :twitter_accounts
+
+      has_secure_password
+
+      validates :email,
+                presence: true,
+                format: {
+                  with: /\A[^@\s]+@[^@\s]+\z/,
+                  message: 'must be a valid email address'
+                }
+    end
+  ```
+
+On `Terminal`
+
+```Bash
+  rails c
+
+  User.last.twitter_accounts
+  # (0.7ms)  SELECT sqlite_version(*)
+  #  User Load (0.4ms)  SELECT "users".* FROM "users" ORDER BY "users"."id" DESC LIMIT ?  [["LIMIT", 1]]
+  #  TwitterAccount Load (0.4ms)  SELECT "twitter_accounts".* FROM "twitter_accounts" WHERE "twitter_accounts"."user_id" = ? /* loading for inspect */ LIMIT ?  [["user_id", 5], ["LIMIT", 11]]
+  # => #<ActiveRecord::Associations::CollectionProxy []>
+```
+
+- This query will only get the twitter account for our current user
+
+#### Update Twitter Controller
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/controllers/omniauth_callbacks_controller.rb`
+
+- We are going to create a new record in our `TwitterAccount` table
+- We don't need to define the `user.id`, Rails already know because of our association
+
+  ```Ruby
+    Current.user.twitter_accounts.create()
+  ```
+
+- `OmniAuth` gives us a hash of all of the things that the API sends back
+
+  - So we can create a method `auth` that can help us get all these values
+
+    ```Ruby
+      def auth
+        request.env['omniauth.auth']
+      end
+    ```
+
+```Ruby
+  class OmniauthCallbacksController < ApplicationController
+    def twitter
+      # Prints all the values of the auth hash
+      Rails.logger.info auth
+
+      twitter_account = Current.user.twitter_accounts.where(username: auth.info.nickname).first_or_initialize
+      twitter_account.update(
+        name: auth.info.name,
+        username: auth.info.nickname,
+        image: auth.info.image,
+        token: auth.credentials.token,
+        secret: auth.credentials.secret
+      )
+      redirect_to root_path, notice: 'Successfully connected your account'
+    end
+
+    def auth
+      request.env['omniauth.auth']
+    end
+  end
+```
+
+- Instead of using `.create()` to add twitter info in the database. We can check if there is a `username` with this `nickname`, `.first_or_initialize` will use the `first` or `create` one if not found
+- Then we can update de document
+
+In `app/models/twitter_account.rb`
+
+- We can update our model to validate the `:username` saving
+
+  ```Ruby
+    class TwitterAccount < ApplicationRecord
+      belongs_to :user
+
+      validates :username, uniqueness: true
+    end
+  ```
+
+On `Terminal`
+
+```Bash
+  rails c
+
+  User.last.twitter_accounts.count
+  # User Load (0.1ms)  SELECT "users".* FROM "users" ORDER BY "users"."id" DESC LIMIT ?  [["LIMIT", 1]]
+  #  (0.2ms)  SELECT COUNT(*) FROM "twitter_accounts" WHERE "twitter_accounts"."user_id" = ?  [["user_id", 5]]
+  # => 1
+```
