@@ -58,6 +58,15 @@
         - [ACTIONMAILER](#actionmailer)
       - [Password Reset View](#password-reset-view)
       - [Update Sign In Form](#update-sign-in-form)
+      - [Password Mailer](#password-mailer)
+        - [RESET TOKEN](#reset-token)
+        - [ROUTES](#routes-1)
+        - [HTML CONTENT](#html-content)
+        - [TEXT CONTENT](#text-content)
+        - [DEVELOPMENT ENVIRONMENT](#development-environment)
+        - [LOGS](#logs)
+        - [RESET PASSWORD CONTROLLER](#reset-password-controller)
+        - [RESET PASSWORD VIEW](#reset-password-view)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -67,6 +76,7 @@
 
 - [Go Rails - Buffer Clone](https://gorails.com/episodes/rails-for-beginners-part-1-installing-ruby-on-rails?autoplay=1)
 - [Bootstrap5](https://getbootstrap.com/docs/5.0/getting-started/introduction/)
+- [Global ID Rails](https://github.com/rails/globalid)
 
 ## Start New Project
 
@@ -1527,4 +1537,340 @@ In `app/views/sessions/new.html.erb`
         <%= form.password_field :password, class: "form-control", placeholder: "password" %>
         <%= link_to "Forgot your password?", password_reset_path %>
     </div>
+  ```
+
+#### Password Mailer
+
+[Go Back to Contents](#table-of-contents)
+
+- [Global ID Rails](https://github.com/rails/globalid)
+
+The `Password Mailer` is similar to any other controller. We can access the `params[:user]` that we passing through our controller (`PasswordMailer.with(user: @user)`)
+
+In `app/mailers/password_mailer.rb`
+
+```Ruby
+  class PasswordMailer < ApplicationMailer
+    def reset
+      @token = params[:user].signed_id(
+        purpose: 'password_reset',
+        expires_in: 15.minutes
+      )
+
+      mail to: params[:user].email
+    end
+  end
+```
+
+---
+
+##### RESET TOKEN
+
+[Go Back to Contents](#table-of-contents)
+
+In rails we have a builtin function that can generate a random token for us, we just need to reference a user from our database.
+
+We can also have expiration data in our tokens
+
+```Bash
+  rails c
+  # Running via Spring preloader in process 68865
+  # Loading development environment (Rails 6.1.3)
+  user = User.last
+  #   (0.5ms)  SELECT sqlite_version(*)
+  #  User Load (0.1ms)  SELECT "users".* FROM "users" ORDER BY "users"."id" DESC LIMIT ?  [["LIMIT", 1]]
+  # => #<User id: 5, email: "your_email@gmail.com", password_digest: [FILTERED], created_at: "2021-03-03 00:4...
+
+  user.signed_id
+  # => "eyJfcmFpbHMiOnsibWVzc2FnZSI6Ik5RPT0iLCJleHAiOm51bGwsInB1ciI6InVzZXIifX0=--61bd3be1c2303e3825bf7824712d781b310906370fb5e04af921ae3759f35313"
+
+  user.to_global_id
+  #<GlobalID:0x00007fb158ad15b8 @uri=#<URI::GID gid://scheduled-tweets/User/5>>
+
+  user.to_global_id.to_s
+  # => "gid://scheduled-tweets/User/5"
+```
+
+- The `signed_id` generates an encrypted token with our users information, in this case the `user.id` (`"gid://scheduled-tweets/User/5"`)
+- We can also pass an expiration to our `signed_id`
+
+```Bash
+  user.signed_id(expires_in: 15.minutes)
+  # => "eyJfcmFpbHMiOnsibWVzc2FnZSI6Ik5RPT0iLCJleHAiOiIyMDIxLTAzLTA0VDAwOjE4OjU4LjI4MVoiLCJwdXIiOiJ1c2VyIn19--b35f3bbb8935db0396d1bcc72d500363ba823cd64cf7cfadcded30a38ec73abf"
+```
+
+- We can also specify a purpose for this token, so in our server we can specify to only accept a token that has the same purpose of the request
+
+```Bash
+  user.signed_id(expires_in: 15.minutes, purpose: "password_reset")
+  # => "eyJfcmFpbHMiOnsibWVzc2FnZSI6Ik5RPT0iLCJleHAiOiIyMDIxLTAzLTA0VDAwOjIwOjQxLjA3OFoiLCJwdXIiOiJ1c2VyL3Bhc3N3b3JkX3Jlc2V0In19--4b0b719794f414f8d73cff9e6ed66fccdb18982555a88c904fce836ac2ee4083"
+```
+
+---
+
+##### ROUTES
+
+[Go Back to Contents](#table-of-contents)
+
+To reset our password, we need to create two new routes to handle the requests.
+
+We are going to create a `GET` page to render the form, and a `PATCH` route to receive the form to update the password
+
+```Ruby
+  get 'password/reset/edit', to: 'password_resets#edit'
+  patch 'password/reset/edit', to: 'password_resets#update'
+```
+
+---
+
+##### HTML CONTENT
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/views/password_mailer/reset.html.erb`
+
+- We are going to create a normal `erb` file adding the path to to our `edit` page
+- Instead of using `password_reset_edit_path` we are going to use `password_reset_edit_url`
+
+  - The `password_reset_edit_path` generates a relative path (`/something`)
+  - The `password_reset_edit_url` generates the complete path (`www.yourwebsite.com/something`)
+    - The `password_reset_edit_url` accepts a parameter `token` to attach to the `url` that we are sending in our email
+
+  ```Ruby
+    Hi <%= params[:user].email%>,
+
+    Someone request a reset of your password.
+
+    If this was you, click on the link to reset your password. The link will expire automatically in 15 minutes.
+
+    <%= link_to "Click Here To Reset Password Your Password", password_reset_edit_url(token: @token) %>
+  ```
+
+---
+
+##### TEXT CONTENT
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/views/password_mailer/reset.text.erb`
+
+```Ruby
+  Hi <%= params[:user].email%>,
+  Someone request a reset of your password.
+  If this was you, click on the link to reset your password. The link will expire automatically in 15 minutes.
+  <%= password_reset_edit_url(token: @token) %>
+```
+
+---
+
+##### DEVELOPMENT ENVIRONMENT
+
+[Go Back to Contents](#table-of-contents)
+
+In **development** mode, we need to config our environment so rails can get the correct **host**
+
+In `config/environments/development.rb`
+
+- Add the following config
+
+  ```Ruby
+    config.action_mailer.default_url_options = { host: 'localhost:3000' }
+  ```
+
+---
+
+##### LOGS
+
+[Go Back to Contents](#table-of-contents)
+
+In our rails logs, we can see that our email was successfully delivered
+
+```Bash
+  [ActiveJob] [ActionMailer::MailDeliveryJob] [fd9e3930-3bfd-4639-ae1f-5f538740765c] Delivered mail 604029fad2409_110b24164-3f7@Rogers-MBP.phub.net.cable.rogers.com.mail (53.0ms)
+  [ActiveJob] [ActionMailer::MailDeliveryJob] [fd9e3930-3bfd-4639-ae1f-5f538740765c] Date: Wed, 03 Mar 2021 19:29:46 -0500
+  From: from@example.com
+  To: your_email@gmail.com
+  Message-ID: <604029fad2409_110b24164-3f7@Rogers-MBP.phub.net.cable.rogers.com.mail>
+  Subject: Reset
+  Mime-Version: 1.0
+  Content-Type: multipart/alternative;
+   boundary="--==_mimepart_604029facbb82_110b24164-4b3";
+   charset=UTF-8
+  Content-Transfer-Encoding: 7bit
+
+
+  ----==_mimepart_604029facbb82_110b24164-4b3
+  Content-Type: text/plain;
+   charset=UTF-8
+  Content-Transfer-Encoding: 7bit
+
+  Hi your_email@gmail.com,
+  Someone request a reset of your password.
+  If this was you, click on the link to reset your password. The link will expire automatically in 15 minutes.
+  http://localhost:3000/password/reset/edit?token=eyJfcmFpbHMiOnsibWVzc2FnZSI6Ik5RPT0iLCJleHAiOiIyMDIxLTAzLTA0VDAwOjQ0OjQ2LjgyMFoiLCJwdXIiOiJ1c2VyL3Bhc3N3b3JkX3Jlc2V0In19--817cd5bba1257268efcc810b37077a608a66604ec0d058fd324a171543d7f726
+
+
+  ----==_mimepart_604029facbb82_110b24164-4b3
+  Content-Type: text/html;
+   charset=UTF-8
+  Content-Transfer-Encoding: 7bit
+
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+      <style>
+        /* Email styles need to be inline */
+      </style>
+    </head>
+
+    <body>
+      Hi your_email@gmail.com,
+  Someone request a reset of your password.
+  If this was you, click on the link to reset your password. The link will expire automatically in 15 minutes.
+  <a href="http://localhost:3000/password/reset/edit?token=eyJfcmFpbHMiOnsibWVzc2FnZSI6Ik5RPT0iLCJleHAiOiIyMDIxLTAzLTA0VDAwOjQ0OjQ2LjgyMFoiLCJwdXIiOiJ1c2VyL3Bhc3N3b3JkX3Jlc2V0In19--817cd5bba1257268efcc810b37077a608a66604ec0d058fd324a171543d7f726">Click Here To Reset Password Your Password</a>
+
+    </body>
+  </html>
+
+  ----==_mimepart_604029facbb82_110b24164-4b3--
+
+    Rendered main/index.html.erb within layouts/application (Duration: 0.5ms | Allocations: 176)
+  [ActiveJob] [ActionMailer::MailDeliveryJob] [fd9e3930-3bfd-4639-ae1f-5f538740765c] Performed ActionMailer::MailDeliveryJob (Job ID: fd9e3930-3bfd-4639-ae1f-5f538740765c) from Async(default) in 81.79ms
+  [Webpacker] Everything's up-to-date. Nothing to do
+    Rendered shared/_navbar.html.erb (Duration: 0.4ms | Allocations: 162)
+    Rendered shared/_flash.html.erb (Duration: 0.1ms | Allocations: 59)
+    Rendered layout layouts/application.html.erb (Duration: 32.5ms | Allocations: 4025)
+  Completed 200 OK in 43ms (Views: 36.3ms | ActiveRecord: 0.0ms | Allocations: 6980)
+```
+
+- As we can see we have our `reset_url` in the middle of the logs
+
+  ```Bash
+    http://localhost:3000/password/reset/edit?token=eyJfcmFpbHMiOnsibWVzc2FnZSI6Ik5RPT0iLCJleHAiOiIyMDIxLTAzLTA0VDAwOjQ0OjQ2LjgyMFoiLCJwdXIiOiJ1c2VyL3Bhc3N3b3JkX3Jlc2V0In19--817cd5bba1257268efcc810b37077a608a66604ec0d058fd324a171543d7f726
+  ```
+
+---
+
+##### RESET PASSWORD CONTROLLER
+
+[Go Back to Contents](#table-of-contents)
+
+We now need to build the action to `edit` and `update` the password
+
+In `app/controllers/password_resets_controller.rb`
+
+- **Edit Password**
+
+  - We are going to use `find_signed` function instead of normal `find_by`
+  - The `find_signed` checks if our token is still valid, and also gets the `user.id` from the token, and checks if the `purpose` is correct too
+
+    ```Ruby
+      def edit
+        @user = User.find_signed(params[:token], purpose: 'password_reset')
+      end
+    ```
+
+    - The `find_signed` method has another version that with an `!` mark (`find_signed!`) and this version throws an error if the token is expired
+    - Lets refactor our action to handle the error
+
+      ```Ruby
+        def edit
+          @user = User.find_signed!(params[:token], purpose: 'password_reset')
+        rescue ActiveSupport::MessageVerifier::InvalidSignature
+          redirect_to sign_in_path, alert: 'Your token has expired. Please try again'
+        end
+      ```
+
+- **Update Password**
+
+  - To update the password, we need to send the `@user` instance that we are sending to our view when we loaded the `edit` page
+  - We need to do that, because we are going to create a private helper that `requires` a `user` so we can update the password
+
+    ```Ruby
+      def update
+        @user = User.find_signed!(params[:token], purpose: 'password_reset')
+        if @user.update(password_params)
+          redirect_to sign_in_path,
+                      notice: 'Your password has been reseted successfully. Please sign in again.'
+        else
+          render :edit
+        end
+      end
+
+      private
+
+      def password_params
+        params.require(:user).permit(:password, :password_confirmation)
+      end
+    ```
+
+---
+
+##### RESET PASSWORD VIEW
+
+[Go Back to Contents](#table-of-contents)
+
+Create the `edit.html.erb`
+
+```Bash
+  touch app/views/password_resets/edit.html.erb
+```
+
+In `app/views/password_resets/edit.html.erb`
+
+- Without sending the `@user` instance
+
+  ```Ruby
+    <h1>Reset your password</h1>
+    <%= form_with url: password_reset_edit_path(token: params[:token]) do |form| %>
+        <% if form.object.errors.any? %>
+            <div class="alert alert-danger">
+                <% form.object.errors.full_messages.each do |message| %>
+                    <div>
+                        <%= message %>
+                    </div>
+                <% end %>
+            </div>
+        <% end %>
+        <div class="mb-3">
+            <%= form.label :password%>
+            <%= form.password_field :password, class: "form-control", placeholder: "password" %>
+        </div>
+        <div class="mb-3">
+            <%= form.label :password_confirmation%>
+            <%= form.password_field :password_confirmation, class: "form-control", placeholder: "password" %>
+        </div>
+        <div class="mb-3">
+            <%= form.submit "Reset Password", class: "btn btn-primary"%>
+        </div>
+    <% end %>
+  ```
+
+- Sending the `@user` instance nested in our form (`model: @user`)
+
+  ```Ruby
+    <h1>Reset your password</h1>
+    <%= form_with model: @user, url: password_reset_edit_path(token: params[:token]) do |form| %>
+        <% if form.object.errors.any? %>
+            <div class="alert alert-danger">
+                <% form.object.errors.full_messages.each do |message| %>
+                    <div>
+                        <%= message %>
+                    </div>
+                <% end %>
+            </div>
+        <% end %>
+        <div class="mb-3">
+            <%= form.label :password%>
+            <%= form.password_field :password, class: "form-control", placeholder: "password" %>
+        </div>
+        <div class="mb-3">
+            <%= form.label :password_confirmation%>
+            <%= form.password_field :password_confirmation, class: "form-control", placeholder: "password" %>
+        </div>
+        <div class="mb-3">
+            <%= form.submit "Reset Password", class: "btn btn-primary"%>
+        </div>
+    <% end %>
   ```
