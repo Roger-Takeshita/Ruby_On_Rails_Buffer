@@ -70,12 +70,18 @@
     - [Generate Environment Variables](#generate-environment-variables)
     - [Omniauth-Twitter](#omniauth-twitter)
       - [Initializers - Middleware](#initializers---middleware)
-      - [Routes (Special Routes)](#routes-special-routes)
+      - [OmniAuth Routes (Special Routes)](#omniauth-routes-special-routes)
       - [Index Page](#index-page)
       - [Twitter Callback Route](#twitter-callback-route)
-      - [Twitter Controller](#twitter-controller)
+      - [OmniAuth Controller](#omniauth-controller)
     - [Twitter Model](#twitter-model)
-      - [Update Twitter Controller](#update-twitter-controller)
+      - [Update OmniAuth Controller](#update-omniauth-controller)
+    - [Twitter Accounts Page](#twitter-accounts-page)
+      - [Twitter Accounts Routes - Resources](#twitter-accounts-routes---resources)
+      - [Twitter Accounts Controller](#twitter-accounts-controller)
+      - [Twitter Accounts View](#twitter-accounts-view)
+      - [Update OmniAuth Controller](#update-omniauth-controller-1)
+    - [before_action To Set Common Variables](#before_action-to-set-common-variables)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -1971,7 +1977,7 @@ In `config/initializers/omniauth.rb`
     end
   ```
 
-#### Routes (Special Routes)
+#### OmniAuth Routes (Special Routes)
 
 [Go Back to Contents](#table-of-contents)
 
@@ -2022,7 +2028,7 @@ In `config/routes.rb`
     get 'auth/twitter/callback', to: 'omniauth_callbacks#twitter'
   ```
 
-#### Twitter Controller
+#### OmniAuth Controller
 
 [Go Back to Contents](#table-of-contents)
 
@@ -2111,7 +2117,7 @@ On `Terminal`
 
 - This query will only get the twitter account for our current user
 
-#### Update Twitter Controller
+#### Update OmniAuth Controller
 
 [Go Back to Contents](#table-of-contents)
 
@@ -2182,3 +2188,149 @@ On `Terminal`
   #  (0.2ms)  SELECT COUNT(*) FROM "twitter_accounts" WHERE "twitter_accounts"."user_id" = ?  [["user_id", 5]]
   # => 1
 ```
+
+### Twitter Accounts Page
+
+#### Twitter Accounts Routes - Resources
+
+[Go Back to Contents](#table-of-contents)
+
+In `config/routes.rb`
+
+- Add the `:twitter_accounts` resource
+- The `resources` will generate all the `CRUD` operations routes for us
+- And also adds automatically the `to:` to map to our twitter controller
+
+  ```Ruby
+    resources :twitter_accounts
+    # get 'twitter_accounts/:id'
+    # delete 'twitter_accounts/:id'
+    # new, create, update
+  ```
+
+#### Twitter Accounts Controller
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new controller
+
+```Bash
+  touch app/controllers/twitter_accounts_controller.rb
+```
+
+In `app/controllers/twitter_accounts_controller.rb`
+
+```Ruby
+  class TwitterAccountsController < ApplicationController
+    before_action :require_user_logged_in
+
+    def index
+      @twitter_accounts = Current.user.twitter_accounts
+    end
+
+    def destroy
+      @twitter_account = Current.user.twitter_accounts.find(params[:id])
+      @twitter_account.destroy
+      redirect_to twitter_accounts_path
+    end
+  end
+```
+
+- Add a `before_action` to require a `user` before executing anything
+
+#### Twitter Accounts View
+
+[Go Back to Contents](#table-of-contents)
+
+Create the twitter account `index.html.erb`
+
+```Bash
+  touch app/views/twitter_accounts/index.html.erb
+```
+
+In `app/views/twitter_accounts/index.html.erb`
+
+```HTML
+  <div class="d-flex align-items-center justify-content-between">
+      <h1>Twitter Accounts</h1>
+      <%= link_to "Connect a Twitter Account", "/auth/twitter", method: :post, class: "btn btn-primary"%>
+  </div>
+  <% @twitter_accounts.each do |twitter_account| %>
+      <div class="d-flex align-items-center mb-4">
+          <div class="me-4">
+              <%= image_tag twitter_account.image, class: "rounded-circle" %>
+              <%= link_to "@#{twitter_account.username}", "https://twitter.com/#{twitter_account.username}", target: :_blank %>
+          </div>
+          <%= button_to "Disconnect", twitter_account, method: :delete, data: { confirm: "Are you sure?" } %>
+      </div>
+  <% end %>
+```
+
+- In rails, we don't need to provide the route to delete/disconnect our twitter account, we just need to pass the model `twitter_account` and rails will figure out to find the correct `user.id` to use ( `delete: 'twitter_accounts/:id'`)
+- Then we can pass the `data` object, that will prompt the use to confirm
+
+#### Update OmniAuth Controller
+
+[Go Back to Contents](#table-of-contents)
+
+Update our `twitter` callback action to redirect to our new route/page `twitter_accounts`
+
+In `app/controllers/omniauth_callbacks_controller.rb`
+
+```Ruby
+  class OmniauthCallbacksController < ApplicationController
+    def twitter
+      # Prints all the values of the auth hash
+      Rails.logger.info auth
+
+      twitter_account = Current.user.twitter_accounts.where(username: auth.info.nickname).first_or_initialize
+      twitter_account.update(
+        name: auth.info.name,
+        username: auth.info.nickname,
+        image: auth.info.image,
+        token: auth.credentials.token,
+        secret: auth.credentials.secret
+      )
+      redirect_to twitter_accounts_path, notice: 'Successfully connected your account'
+    end
+
+    def auth
+      request.env['omniauth.auth']
+    end
+  end
+```
+
+### before_action To Set Common Variables
+
+[Go Back to Contents](#table-of-contents)
+
+We can set a `before_action` to set a common variable across actions
+
+In `app/controllers/twitter_accounts_controller.rb`
+
+- Let's update our `destroy` action
+- Create a private method `set_twitter_account`
+- Require `before_action` for only the `destroy` action
+
+  ```Ruby
+    class TwitterAccountsController < ApplicationController
+      before_action :require_user_logged_in
+      before_action :set_twitter_account, only: [:destroy]
+
+      def index
+        @twitter_accounts = Current.user.twitter_accounts
+      end
+
+      def destroy
+        @twitter_account.destroy
+        redirect_to twitter_accounts_path,
+                    notice: "Successfully disconnected @#{@twitter_account.username}"
+      end
+
+      private
+
+      def set_twitter_account
+        @twitter_account = Current.user.twitter_accounts.find(params[:id])
+      end
+    end
+  ```
