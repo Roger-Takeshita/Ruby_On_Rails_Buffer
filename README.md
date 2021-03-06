@@ -82,6 +82,16 @@
       - [Twitter Accounts View](#twitter-accounts-view)
       - [Update OmniAuth Controller](#update-omniauth-controller-1)
     - [before_action To Set Common Variables](#before_action-to-set-common-variables)
+    - [Tweets](#tweets)
+      - [Tweets Model](#tweets-model)
+        - [User Model](#user-model-1)
+        - [Twitter Account Model](#twitter-account-model)
+      - [Tweets Routes](#tweets-routes)
+      - [Tweets Controller](#tweets-controller)
+      - [Tweets Index](#tweets-index)
+      - [Update Navbar](#update-navbar-2)
+      - [Tweets Model](#tweets-model-1)
+      - [Tweets New](#tweets-new)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -2334,3 +2344,215 @@ In `app/controllers/twitter_accounts_controller.rb`
       end
     end
   ```
+
+### Tweets
+
+#### Tweets Model
+
+[Go Back to Contents](#table-of-contents)
+
+Generate a new `Tweet` model to schedule our tweets
+
+```Bash
+  rails g model Tweet user:belongs_to twitter_account:belongs_to body:text publish_at:datetime tweet_id:string
+  # Running via Spring preloader in process 67929
+  #     invoke  active_record
+  #     create    db/migrate/20210306030431_create_tweets.rb
+  #     create    app/models/tweet.rb
+  #     invoke    test_unit
+  #     create      test/models/tweet_test.rb
+  #     create      test/fixtures/tweets.yml
+
+  rails db:migrate
+  # == 20210306030431 CreateTweets: migrating =====================================
+  # -- create_table(:tweets)
+  #    -> 0.0041s
+  # == 20210306030431 CreateTweets: migrated (0.0044s) ============================
+```
+
+- `belongs_to` creates an association between `Tweet` and `User` and `twitter_account`
+- In other words, a `tweet` belongs to a `user` and `twitter account`
+- The `tweet_id` is going to be our confirmation that our tweet was sent
+
+##### User Model
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/models/user.rb`
+
+- We need to make the connection with our `tweets` model
+- To do so, add `has_many :tweets`
+
+##### Twitter Account Model
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/models/twitter_account.rb`
+
+- We need to make the connection with our `tweets` model
+- To do so, add `has_many :tweets`
+
+#### Tweets Routes
+
+[Go Back to Contents](#table-of-contents)
+
+In `config/routes.rb`
+
+- Add a the tweet resources
+
+  ```Ruby
+    resources :tweets
+  ```
+
+#### Tweets Controller
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new controller
+
+```Bash
+  touch app/controllers/tweets_controller.rb
+```
+
+In `app/controllers/tweets_controller.rb`
+
+```Ruby
+  class TweetsController < ApplicationController
+    before_action :require_user_logged_in
+
+    def index
+      @tweets = Current.user.tweets
+    end
+
+    def new
+      @tweet = Tweet.new
+    end
+
+    def create
+      @tweet = Current.user.tweets.create(tweet_params)
+      if @tweet.save
+        redirect_to tweets_path, notice: 'Tweet was schedule successfully'
+      else
+        render :new
+      end
+    end
+
+    private
+
+    def tweet_params
+      params.require(:tweet).permit(:twitter_account_id, :body, :publish_at)
+    end
+  end
+```
+
+#### Tweets Index
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new view
+
+```Bash
+  touch touch app/views/tweets/index.html.erb
+```
+
+In `app/views/tweets/index.html.erb`
+
+```Ruby
+  <div class="d-flex justify-content-between align-items-center">
+      <h1>Tweets</h1>
+      <% if Current.user.twitter_accounts.any? %>
+          <%= link_to "Schedule a Tweet", new_tweet_path, class: "btn btn-primary" %>
+      <% end %>
+  </div>
+  <% if Current.user.twitter_accounts.none? %>
+      <%= link_to "Connect Your Twitter Account", "/auth/twitter", method: :post, class: "btn btn-primary"%>
+  <% end %>
+```
+
+#### Update Navbar
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/views/shared/_navbar.html.erb`
+
+- Change our `Home` link to `Tweets`
+
+  ```Ruby
+    <li class="nav-item">
+        <%= link_to "Tweets", tweets_path, class: "nav-link active" %>
+    </li>
+  ```
+
+#### Tweets Model
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/models/tweet.rb`
+
+- Add a validation to our form
+- We can also add something `after_initialize`, in this case it will check if the `publish_at` has already been set, otherwise, set the `datetime` for 24hrs from now
+
+  ```Ruby
+    class Tweet < ApplicationRecord
+      belongs_to :user
+      belongs_to :twitter_account
+
+      validates :body, length: { minimum: 1, maximum: 280 }
+      validates :publish_at, presence: true
+
+      after_initialize do
+        self.publish_at ||= 24.hours.from_now
+      end
+    end
+  ```
+
+#### Tweets New
+
+[Go Back to Contents](#table-of-contents)
+
+Create the new page
+
+```Bash
+  touch app/views/tweets/new.html.erb
+  touch app/views/shared/_form_errors.html.erb
+```
+
+In `app/views/shared/_form_errors.html.erb`
+
+- Create our shared error msg
+
+  ```Ruby
+    <% if form.object.errors.any? %>
+        <div class="alert alert-danger">
+            <% form.object.errors.full_messages.each do |message| %>
+                <div>
+                    <%= message %>
+                </div>
+            <% end %>
+        </div>
+    <% end %>
+  ```
+
+In `app/views/tweets/new.html.erb`
+
+```Ruby
+  <h1>Schedule a Tweet</h1>
+  <%= form_with model: @tweet do |form| %>
+      <div class="mb-3">
+          <%= form.label :twitter_account_id %>
+          <%= form.collection_select :twitter_account_id, Current.user.twitter_accounts, :id, :username, {}, { class: "form-control" } %>
+          <%= link_to "Connect Your Twitter Account", "/auth/twitter" %>
+      </div>
+      <div class="mb-3">
+          <%= form.label :body %>
+          <%= form.text_area :body, class: "form-control" %>
+      </div>
+      <div class="mb-3">
+          <%= form.label :publish_at %>
+          <div class="form-control">
+              <%= form.datetime_select :publish_at %>
+          </div>
+      </div>
+      <%= form.button "Schedule", class: "btn btn-primary" %>
+  <% end %>
+```
