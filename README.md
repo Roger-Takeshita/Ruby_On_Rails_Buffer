@@ -92,6 +92,10 @@
       - [Update Navbar](#update-navbar-2)
       - [Tweets Model](#tweets-model-1)
       - [Tweets New](#tweets-new)
+      - [Tweets Render Partial](#tweets-render-partial)
+        - [Tweets Index](#tweets-index-1)
+        - [Tweets Partial](#tweets-partial)
+      - [Tweets Model](#tweets-model-2)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -2556,3 +2560,58 @@ In `app/views/tweets/new.html.erb`
       <%= form.button "Schedule", class: "btn btn-primary" %>
   <% end %>
 ```
+
+#### Tweets Render Partial
+
+##### Tweets Index
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/views/tweets/index.html.erb`
+
+- If we `render` an object
+
+  ```Ruby
+      <%= render @tweets %>
+  ```
+
+  - Rails will render each item of the object (query result), we just need to create a partial called `_tweet.html.erb`
+
+##### Tweets Partial
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new partial to render our query object (@tweets)
+
+```Bash
+  touch app/views/tweets/_tweet.html.erb
+```
+
+In `app/views/tweets/_tweet.html.erb`
+
+```Ruby
+  <div class="mb-3 card card-body">
+      <%= tweet.body %>
+      <div class="me-4">
+          <%= image_tag tweet.twitter_account.image, class: "rounded-circle" %>
+          <%= link_to "@#{tweet.twitter_account.username}", "https://twitter.com/#{tweet.twitter_account.username}", target: :_blank %>
+      </div>
+  </div>
+```
+
+#### Tweets Model
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/models/tweet.rb`
+
+- Add a new method to our `tweet` controller to check if our tweet has been published or not
+
+  ```Ruby
+    def published?
+      tweet_id?
+    end
+  ```
+
+  - Because we added a question mark in the end of the method, rails will return `true/false` instead of the normal behavior `value` or `nil`
+  - This method will check the `tweet_id` column, if has a value, then it's published
