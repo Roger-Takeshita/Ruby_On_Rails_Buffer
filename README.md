@@ -103,6 +103,8 @@
     - [Twitter Gem](#twitter-gem)
       - [Twitter Controller](#twitter-controller)
       - [Tweet Model](#tweet-model)
+    - [Background Job](#background-job)
+      - [Tweet Model](#tweet-model-1)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -2775,7 +2777,9 @@ In `app/models/twitter_account.rb`
 
 [Go Back to Contents](#table-of-contents)
 
-Create a new function to post a tweet using the `twitter` gem
+Create a new function called `publish_to_twitter!` to post a tweet using the `twitter` gem
+
+We added the `!` in the end, just to help us identify that this function makes an external API call
 
 In `app/models/tweet.rb`
 
@@ -2785,3 +2789,60 @@ In `app/models/tweet.rb`
     update(tweet_id: tweet.id)
   end
 ```
+
+### Background Job
+
+[Go Back to Contents](#table-of-contents)
+
+Rails has a builtin background jobs `app/jobs/application_job.rb`
+
+Let's create a new one for Tweets
+
+```Bash
+  rails g job Tweet
+
+  # Running via Spring preloader in process 84498
+  #     invoke  test_unit
+  #     create    test/jobs/tweet_job_test.rb
+  #     create  app/jobs/tweet_job.rb
+```
+
+In `app/jobs/tweet_job.rb`
+
+- Update the `perform` method
+- Check if the tweet has already been published, if `yes` return
+- Check if `publish_at` datetime greater than current datetime, if `yes` return
+- For last publish the tweet
+
+  ```Ruby
+    class TweetJob < ApplicationJob
+      queue_as :default
+
+      def perform(tweet)
+        return if tweet.published?
+
+        # Rescheduled a tweet to the future
+        return if tweet.publish_at > Time.Current
+
+        tweet.publish_to_twitter!
+      end
+    end
+  ```
+
+#### Tweet Model
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new method that will run every time some has successfully saved in our database (`CREATE` and `UPDATE`)
+
+In `app/models/tweet.rb`
+
+- The `TweetJob.set` adds a new job to the queue, we need to pass `wait_until` as argument to set the datetime and chain `perform_later` to attach the object that we want to use later
+
+  ```Ruby
+    after_save_commit do
+      if publish_at_previously_changed?
+        TweetJob.set(wait_until: @tweet.publish_at).perform_later(self)
+      end
+    end
+  ```

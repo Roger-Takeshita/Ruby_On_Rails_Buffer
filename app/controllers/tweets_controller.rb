@@ -24,7 +24,8 @@ class TweetsController < ApplicationController
 
   def update
     if @tweet.update(tweet_params)
-      redirect_to tweets_path, notice: 'Twee has been updated successfully'
+      redirect_to tweets_path,
+                  notice: 'Twee has been updated successfully'
     else
       render :edit
     end
