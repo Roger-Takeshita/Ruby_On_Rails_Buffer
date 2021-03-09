@@ -105,6 +105,9 @@
       - [Tweet Model](#tweet-model)
     - [Background Job](#background-job)
       - [Tweet Model](#tweet-model-1)
+    - [Sidekiq](#sidekiq)
+      - [Config Rails + Sidekiq](#config-rails--sidekiq)
+      - [Check If It's Working](#check-if-its-working)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -2822,7 +2825,7 @@ In `app/jobs/tweet_job.rb`
         return if tweet.published?
 
         # Rescheduled a tweet to the future
-        return if tweet.publish_at > Time.Current
+        return if tweet.publish_at > Time.current
 
         tweet.publish_to_twitter!
       end
@@ -2846,3 +2849,69 @@ In `app/models/tweet.rb`
       end
     end
   ```
+
+### Sidekiq
+
+[Go Back to Contents](#table-of-contents)
+
+Our current background job doesn't persist the queue if the server restarts
+
+Let's add `sidekiq` to fix this problem for us
+
+```Bash
+  bundle add sidekiq
+
+  bundle exec sidekiq -e development
+```
+
+#### Config Rails + Sidekiq
+
+[Go Back to Contents](#table-of-contents)
+
+In `config/environments/development.rb`
+
+- Add the following line to the environment configuration
+
+  ```Ruby
+    config.active_job.queue_adapter = :sidekiq
+  ```
+
+In `config/environments/production.rb`
+
+- Add the same configuration to production
+
+  ```Ruby
+    config.active_job.queue_adapter = :sidekiq
+  ```
+
+#### Check If It's Working
+
+[Go Back to Contents](#table-of-contents)
+
+On `Terminal 1`
+
+```Bash
+  rails c
+
+  TweetJob.perform_later(Tweet.last)
+  # (0.4ms)  SELECT sqlite_version(*)
+  #   Tweet Load (0.1ms)  SELECT "tweets".* FROM "tweets" ORDER BY "tweets"."id" DESC LIMIT ?  [["LIMIT", 1]]
+  # Enqueued TweetJob (Job ID: fe63464e-bfca-4ce8-ad26-f4986e5690ca) to Sidekiq(default) with arguments: #<GlobalID:0x00007fec512b81b8 @uri=#<URI::GID gid://scheduled-tweets/Tweet/7>>
+  # => #<TweetJob:0x00007fec512d9598 @arguments=[#<Tweet id: 7, user_id: 5, twitter_account_id: 4, body: "New Twitter API Job", publish_at: "2021-03-15 07:49:00.000000000 +0000", tweet_id: nil, created_at: "2021-03-09 00:59:31.911678000 +0000", updated_at: "2021-03-09 01:03:59.717806000 +0000">], @job_id="fe63464e-bfca-4ce8-ad26-f4986e5690ca", @queue_name="default", @priority=nil, @executions=0, @exception_executions={}, @timezone="UTC", @provider_job_id="42ab7c66ed679d503569e978">
+```
+
+On `Terminal 2`
+
+```Bash
+  bundle exec sidekiq -e development
+  # 2021-03-09T01:19:48.892Z pid=87485 tid=1wg1 INFO: Booted Rails 6.1.3 application in development environment
+  # 2021-03-09T01:19:48.892Z pid=87485 tid=1wg1 INFO: Running in ruby 2.7.2p137 (2020-10-01 revision 5445e04352) [x86_64-darwin19]
+  # 2021-03-09T01:19:48.892Z pid=87485 tid=1wg1 INFO: See LICENSE and the LGPL-3.0 for licensing details.
+  # 2021-03-09T01:19:48.892Z pid=87485 tid=1wg1 INFO: Upgrade to Sidekiq Pro for more features and support: https://sidekiq.org
+  # 2021-03-09T01:19:48.892Z pid=87485 tid=1wg1 INFO: Booting Sidekiq 6.1.3 with redis options {}
+  # 2021-03-09T01:19:48.894Z pid=87485 tid=1wg1 INFO: Starting processing, hit Ctrl-C to stop
+
+  # Added new job
+  # 2021-03-09T01:19:50.739Z pid=87485 tid=20i9 class=TweetJob jid=d32d7b46438dc915228dbc1f INFO: start
+  # 2021-03-09T01:19:50.865Z pid=87485 tid=20i9 class=TweetJob jid=d32d7b46438dc915228dbc1f elapsed=0.127 INFO: done
+```
