@@ -100,6 +100,9 @@
       - [Update Tweet Index](#update-tweet-index)
       - [Tweets Edit Schedule](#tweets-edit-schedule)
       - [Update Tweets Controller](#update-tweets-controller)
+    - [Twitter Gem](#twitter-gem)
+      - [Twitter Controller](#twitter-controller)
+      - [Tweet Model](#tweet-model)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -2725,3 +2728,60 @@ In `app/controllers/tweets_controller.rb`
       @tweet = Current.user.tweets.find(params[:id])
     end
   ```
+
+### Twitter Gem
+
+[Go Back to Contents](#table-of-contents)
+
+Instead of coding and making calls to Twitter's API directly, we are going to use third party gem to help use to connect to Twitter's API
+
+```Bash
+  bundle add twitter
+```
+
+#### Twitter Controller
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/models/twitter_account.rb`
+
+- Add a new function called `client`
+
+  ```Ruby
+    class TwitterAccount < ApplicationRecord
+      belongs_to :user
+      has_many :tweets
+
+      validates :username, uniqueness: true
+
+      def client
+        Twitter::REST::Client.new do |config|
+          config.consumer_key = Rails.application.credentials.dig(
+            :twitter,
+            :api_key
+          )
+          config.consumer_secret = Rails.application.credentials.dig(
+            :twitter,
+            :api_secret
+          )
+          config.access_token        = token
+          config.access_token_secret = secret
+        end
+      end
+    end
+  ```
+
+#### Tweet Model
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new function to post a tweet using the `twitter` gem
+
+In `app/models/tweet.rb`
+
+```Ruby
+  def publish_to_twitter!
+    tweet = twitter_account.client.update(body)
+    update(tweet_id: tweet.id)
+  end
+```
