@@ -96,6 +96,10 @@
         - [Tweets Index](#tweets-index-1)
         - [Tweets Partial](#tweets-partial)
       - [Tweets Model](#tweets-model-2)
+      - [Tweet Form Partial](#tweet-form-partial)
+      - [Update Tweet Index](#update-tweet-index)
+      - [Tweets Edit Schedule](#tweets-edit-schedule)
+      - [Update Tweets Controller](#update-tweets-controller)
 
 # SCHEDULE TWEETS - BUFFER CLONE
 
@@ -2615,3 +2619,109 @@ In `app/models/tweet.rb`
 
   - Because we added a question mark in the end of the method, rails will return `true/false` instead of the normal behavior `value` or `nil`
   - This method will check the `tweet_id` column, if has a value, then it's published
+
+#### Tweet Form Partial
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new partial to clean our code
+
+```Bash
+  touch app/views/tweets/_form.html.erb
+```
+
+In `app/views/tweets/_form.html.erb`
+
+- We just need to update tweet variable, instead of using the instance `@tweet` we are going to use a local variable `tweet` that we are going to pass it when we invoke the form
+
+```HTML
+  <%= form_with model: tweet do |form| %>
+      <%= render "shared/form_errors", form: form%>
+      <div class="mb-3">
+          <%= form.label :twitter_account_id %>
+          <%= form.collection_select :twitter_account_id, Current.user.twitter_accounts, :id, :username, {}, { class: "form-control" } %>
+          <%= link_to "Connect Your Twitter Account", "/auth/twitter" %>
+      </div>
+      <div class="mb-3">
+          <%= form.label :body %>
+          <%= form.text_area :body, class: "form-control" %>
+      </div>
+      <div class="mb-3">
+          <%= form.label :publish_at %>
+          <div class="form-control">
+              <%= form.datetime_select :publish_at %>
+          </div>
+      </div>
+      <%= form.button "Schedule", class: "btn btn-primary" %>
+      <% if form.object.persisted? %>
+          <%= button_to "Delete", form.object, method: :delete, data: { confirm: "Are you sure you want to delete this tweet?" }, class: "btn  btn-outline-danger" %>
+      <% end %>
+  <% end %>
+```
+
+#### Update Tweet Index
+
+[Go Back to Contents](#table-of-contents)
+
+Update the tweet index to use our partial `_form`
+
+In `app/views/tweets/new.html.erb`
+
+```HTML
+  <h1>Schedule a Tweet</h1>
+  <%= render "form", tweet: @tweet %>
+```
+
+#### Tweets Edit Schedule
+
+[Go Back to Contents](#table-of-contents)
+
+Create a new view to edit a tweet
+
+```Bash
+  touch app/views/tweets/edit.html.erb
+```
+
+In `app/views/tweets/edit.html.erb`
+
+```HTML
+  <h1>Edit Scheduled Tweet</h1>
+  <%= render "form", tweet: @tweet %>
+```
+
+#### Update Tweets Controller
+
+[Go Back to Contents](#table-of-contents)
+
+In `app/controllers/tweets_controller.rb`
+
+- We can create a new private method to help use to set the current `Tweet`
+- And before each action we set the current tweet
+
+  ```Ruby
+    ...
+    before_action :set_tweet, only: %i[show edit update destroy]
+
+    ...
+    def edit
+    end
+
+    def update
+      if @tweet.update(tweet_params)
+        redirect_to tweets_path, notice: 'Twee has been updated successfully'
+      else
+        render :edit
+      end
+    end
+
+    def destroy
+      @tweet.destroy
+      redirect_to tweets_path, notice: 'Tweet has been successfully unscheduled'
+    end
+
+    private
+    ...
+    def set_tweet
+      @tweet = Current.user.tweets.find(params[:id])
+    end
+  ```
