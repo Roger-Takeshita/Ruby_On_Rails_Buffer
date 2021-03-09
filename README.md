@@ -2659,7 +2659,7 @@ In `app/views/tweets/_form.html.erb`
       </div>
       <%= form.button "Schedule", class: "btn btn-primary" %>
       <% if form.object.persisted? %>
-          <%= button_to "Delete", form.object, method: :delete, data: { confirm: "Are you sure you want to delete this tweet?" }, class: "btn  btn-outline-danger" %>
+          <%= link_to "Delete", form.object, method: :delete, data: { confirm: "Are you sure you want to delete this tweet?" }, class: "btn  btn-outline-danger" %>
       <% end %>
   <% end %>
 ```
@@ -2842,7 +2842,7 @@ In `app/models/tweet.rb`
   ```Ruby
     after_save_commit do
       if publish_at_previously_changed?
-        TweetJob.set(wait_until: @tweet.publish_at).perform_later(self)
+        TweetJob.set(wait_until: publish_at).perform_later(self)
       end
     end
   ```
