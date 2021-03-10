@@ -2406,7 +2406,14 @@ In `app/models/user.rb`
 In `app/models/twitter_account.rb`
 
 - We need to make the connection with our `tweets` model
-- To do so, add `has_many :tweets`
+- To do so, add `has_many :tweets` and we can also add `dependent: :destroy` this means that when the user disconnects his account, we also delete his scheduled tweets
+
+  ```Ruby
+    class TwitterAccount < ApplicationRecord
+      belongs_to :user
+      has_many :tweets, dependent: :destroy
+    end
+  ```
 
 #### Tweets Routes
 
@@ -2755,7 +2762,7 @@ In `app/models/twitter_account.rb`
   ```Ruby
     class TwitterAccount < ApplicationRecord
       belongs_to :user
-      has_many :tweets
+      has_many :tweets, dependent: :destroy
 
       validates :username, uniqueness: true
 
